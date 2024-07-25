@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <string>
 #include <iomanip>
+#include <fstream>
 #include "Process.h"
 
 using namespace std;
@@ -71,6 +72,75 @@ void initialize_processes(vector<Process>& processes, int num_processes, int num
             id_letter++;
         }
     }
+}
+
+void calculate_statistics(const vector<Process>& processes, int& num_cpu_bound, int& num_io_bound, double& avg_cpu_bound_cpu_burst, double& avg_io_bound_cpu_burst, double& overall_avg_cpu_burst, double& avg_cpu_bound_io_burst, double& avg_io_bound_io_burst, double& overall_avg_io_burst) {
+    int total_cpu_bound_cpu_burst_time = 0;
+    int total_cpu_bound_io_burst_time = 0;
+    int total_cpu_burst_time = 0;
+    int total_io_bound_cpu_burst_time = 0;
+    int total_io_bound_io_burst_time = 0;
+    int total_io_burst_time = 0;
+    int total_cpu_bursts = 0;
+    int total_io_bursts = 0;
+    int total_cpu_bound_cpu_bursts = 0;
+    int total_io_bound_cpu_bursts = 0;
+    int total_cpu_bound_io_bursts = 0;
+    int total_io_bound_io_bursts = 0;
+
+    for(const auto& process : processes) {
+        if (process.is_cpu_bound()) {
+            num_cpu_bound++;
+            total_cpu_bound_cpu_bursts += process.cpu_bursts.size();
+            total_cpu_bound_io_bursts += process.io_bursts.size();
+            for (int cpu_burst : process.cpu_bursts) {
+                total_cpu_burst_time += cpu_burst;
+                total_cpu_bound_cpu_burst_time += cpu_burst;
+                total_cpu_bursts++;
+            }
+            for (int io_burst : process.io_bursts) {
+                total_io_burst_time += io_burst;
+                total_cpu_bound_io_burst_time += io_burst;
+                total_io_bursts++;
+            }
+        } else {
+            num_io_bound++;
+            total_io_bound_cpu_bursts += process.cpu_bursts.size();
+            total_io_bound_io_bursts += process.io_bursts.size();
+            for (int cpu_burst : process.cpu_bursts) {
+                total_cpu_burst_time += cpu_burst;
+                total_io_bound_cpu_burst_time += cpu_burst;
+                total_cpu_bursts++;
+            }
+            for (int io_burst : process.io_bursts) {
+                total_io_burst_time += io_burst;
+                total_io_bound_io_burst_time += io_burst;
+                total_io_bursts++;
+            }
+        }
+    }
+
+    avg_cpu_bound_cpu_burst = (total_cpu_bound_cpu_bursts > 0) ? (double)total_cpu_bound_cpu_burst_time / total_cpu_bound_cpu_bursts : 0;
+    avg_io_bound_cpu_burst = (total_io_bound_cpu_bursts > 0) ? (double)total_io_bound_cpu_burst_time / total_io_bound_cpu_bursts : 0;
+    overall_avg_cpu_burst = (total_cpu_bursts > 0) ? (double)total_cpu_burst_time / total_cpu_bursts : 0;
+    avg_cpu_bound_io_burst = (total_cpu_bound_io_bursts > 0) ? (double)total_cpu_bound_io_burst_time / total_cpu_bound_io_bursts : 0;
+    avg_io_bound_io_burst = (total_io_bound_io_bursts > 0) ? (double)total_io_bound_io_burst_time / total_io_bound_io_bursts : 0;
+    overall_avg_io_burst = (total_io_bursts > 0) ? (double)total_io_burst_time / total_io_bursts : 0;
+}
+
+void write_statistics_to_file(int num_processes, int num_cpu_bound, int num_io_bound, double avg_cpu_bound_cpu_burst, double avg_io_bound_cpu_burst, double overall_avg_cpu_burst, double avg_cpu_bound_io_burst, double avg_io_bound_io_burst, double overall_avg_io_burst) {
+    ofstream outfile("simout.txt");
+    outfile << fixed << setprecision(3);
+    outfile << "-- number of processes: " << num_processes << endl;
+    outfile << "-- number of CPU-bound processes: " << num_cpu_bound << endl;
+    outfile << "-- number of I/O-bound processes: " << num_io_bound << endl;
+    outfile << "-- CPU-bound average CPU burst time: " << ceil(avg_cpu_bound_cpu_burst * 1000.0) / 1000.0 << " ms" << endl;
+    outfile << "-- I/O-bound average CPU burst time: " << ceil(avg_io_bound_cpu_burst * 1000.0) / 1000.0 << " ms" << endl;
+    outfile << "-- overall average CPU burst time: " << ceil(overall_avg_cpu_burst * 1000.0) / 1000.0 << " ms" << endl;
+    outfile << "-- CPU-bound average I/O burst time: " << ceil(avg_cpu_bound_io_burst * 1000.0) / 1000.0 << " ms" << endl;
+    outfile << "-- I/O-bound average I/O burst time: " << ceil(avg_io_bound_io_burst * 1000.0) / 1000.0 << " ms" << endl;
+    outfile << "-- overall average I/O burst time: " << ceil(overall_avg_io_burst * 1000.0) / 1000.0 << " ms" << endl;
+    outfile.close();
 }
 
 void print_processes(const vector<Process>& processes, int num_processes, int num_cpu_bound, int seed, double lambda) {
@@ -157,6 +227,18 @@ int main(int argc, char* argv[]) {
     vector<Process> processes;
     initialize_processes(processes, num_processes, num_cpu_bound, lambda);
     print_processes(processes, num_processes, num_cpu_bound, seed, lambda);
+
+    num_cpu_bound = 0;
+    int num_io_bound = 0;
+    double avg_cpu_bound_cpu_burst = 0;
+    double avg_io_bound_cpu_burst = 0;
+    double overall_avg_cpu_burst = 0;
+    double avg_cpu_bound_io_burst = 0;
+    double avg_io_bound_io_burst = 0;
+    double overall_avg_io_burst = 0;
+
+    calculate_statistics(processes, num_cpu_bound, num_io_bound, avg_cpu_bound_cpu_burst, avg_io_bound_cpu_burst, overall_avg_cpu_burst, avg_cpu_bound_io_burst, avg_io_bound_io_burst, overall_avg_io_burst);
+    write_statistics_to_file(num_processes, num_cpu_bound, num_io_bound, avg_cpu_bound_cpu_burst, avg_io_bound_cpu_burst, overall_avg_cpu_burst, avg_cpu_bound_io_burst, avg_io_bound_io_burst, overall_avg_io_burst);
 
     return 0;
 }
