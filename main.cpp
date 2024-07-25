@@ -74,7 +74,18 @@ int main(int argc, char * argv[]) {
 
     //start of program
     srand48(seed);
-    std::cout<<processes<<" "<< cpu_bound_processes<< " "<< seed << " "<< lambda<< " "<< bound<< "\n";
+    std::cout<<"<<< PROJECT PART I\n";
+    if(cpu_bound_processes==1){
+       std::cout<<"<<< -- process set (n="<<processes<<") with "<<cpu_bound_processes<<" CPU-bound process\n";
+    }
+    else{
+       std::cout<<"<<< -- process set (n="<<processes<<") with "<<cpu_bound_processes<<" CPU-bound processes\n";
+    }
+   
+
+    std::cout<<"<<< -- seed="<<seed<<"; ";
+    fprintf(stdout,"lambda=%.6f; bound=%ld\n",lambda,bound);
+
 
     // cpu bound processes first
     //cpu proccess are named A0-A9, B0...Z9
@@ -123,7 +134,11 @@ int main(int argc, char * argv[]) {
   void printProcess(std::string p, bool CPU_or_IO, int arrival, int burst, long int bound, double lambda){
     //1 for CPU, 0 for IO
     if(CPU_or_IO){
+      if(burst==1){
+        std::cout<<"CPU-bound process "<< p << ": arrival time " <<arrival<<"ms; "<<burst<<" CPU burst:\n";
+      }else{
       std::cout<<"CPU-bound process "<< p << ": arrival time " <<arrival<<"ms; "<<burst<<" CPU bursts:\n";
+      }
       for(int i = 0; i < burst - 1; i++){
         int burst_time = ceil(next_exp(lambda, bound)) * 4;
         int io_time =  ceil(next_exp(lambda, bound));
@@ -133,7 +148,13 @@ int main(int argc, char * argv[]) {
       std::cout<<"==> CPU burst "<<burst_time<<"ms"<<std::endl;
     }
     else{
-      std::cout<<"I/O-bound process "<< p << ": arrival time " <<arrival<<"ms; "<<burst<<" CPU bursts:\n";
+      if(burst==1){
+        std::cout<<"I/O-bound process "<< p << ": arrival time " <<arrival<<"ms; "<<burst<<" CPU burst:\n";
+      }
+      else{
+        std::cout<<"I/O-bound process "<< p << ": arrival time " <<arrival<<"ms; "<<burst<<" CPU bursts:\n";
+      }
+      
       for(int i = 0; i < burst - 1; i++){
         int burst_time = ceil(next_exp(lambda, bound));
         int io_time = ceil(next_exp(lambda,bound)) * 8;
