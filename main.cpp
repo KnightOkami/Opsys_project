@@ -1,20 +1,103 @@
 #include <iostream>
+#include <queue>
+#include <vector>
+#include <cmath>
 #include <cstdlib>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <string>
+#include <iomanip>
+#include "Process.h"
 
-double next_exp(double lambda, long int bound);
-void nextName(char &name, int &num);
-void printProcess(std::string p, bool CPU_or_IO, int arrival, int burst, long int bound, double lambda);
+using namespace std;
 
-int main(int argc, char * argv[]) {
+queue<Process*> ready_queue;
+int bound = 0;
 
-   
+double next_exp(double lambda) {
+    double r = drand48();
+    return -log(r) / lambda;
+}
 
-    ///////Input Error Checking///////
+void generate_bursts(Process& process, double lambda) {
+    int num_cpu_bursts = ceil(drand48() * 32);
+    for (int j = 0; j < num_cpu_bursts; ++j) {
+        int cpu_burst;
+        int io_burst;
+        do {
+            cpu_burst = ceil(next_exp(lambda));
+        } while (cpu_burst > bound);
+        if (j < num_cpu_bursts - 1) {
+            do {
+                io_burst = ceil(next_exp(lambda));
+            } while (io_burst > bound);
+        }
+        if (process.is_cpu_bound()) {
+            cpu_burst *= 4;
+        } else {
+            io_burst *= 8;
+        }
 
-    //Incorrect amount of arguments
+        process.cpu_bursts.push_back(cpu_burst);
+        if (j < num_cpu_bursts - 1) {
+            process.io_bursts.push_back(io_burst);
+        }
+    }
+}
+
+void initialize_processes(vector<Process>& processes, int num_processes, int num_cpu_bound, double lambda) {
+    char id_letter = 'A';
+    int id_number = 0;
+
+    for (int i = 0; i < num_processes; ++i) {
+        string id = string(1, id_letter) + to_string(id_number);
+
+        int arrival_time = 0;
+        double r;
+        do {
+            r = next_exp(lambda);
+        } while (r > bound);
+        arrival_time = floor(r);
+
+        ProcessType type = (i < num_cpu_bound) ? CPU_BOUND : IO_BOUND;
+        Process process(id, arrival_time, type);
+
+        generate_bursts(process, lambda);
+
+        processes.push_back(process);
+        ready_queue.push(&processes.back());
+
+        id_number++;
+        if (id_number > 9) {
+            id_number = 0;
+            id_letter++;
+        }
+    }
+}
+
+void print_processes(const vector<Process>& processes, int num_processes, int num_cpu_bound, int seed, double lambda) {
+    cout << "<<< PROJECT PART I" << endl;
+    cout << "<<< -- process set (n=" << num_processes << ") with " << num_cpu_bound << " CPU-bound process" << (num_cpu_bound > 1 ? "es" : "") << endl;
+    cout << "<<< -- seed=" << seed << "; lambda=" << fixed << setprecision(6) << lambda << "; bound=" << bound << endl;
+
+    for (const auto& process : processes) {
+        cout << (process.is_cpu_bound() ? "CPU-bound" : "I/O-bound") << " process " << process.id << ": arrival time " << process.arrival_time << "ms; "
+             << process.cpu_bursts.size() << " CPU burst" << (process.cpu_bursts.size() == 1 ? ":" : "s:") << endl;
+        for (size_t j = 0; j < process.cpu_bursts.size(); ++j) {
+            cout << "==> CPU burst " << process.cpu_bursts[j] << "ms";
+            if (j < process.io_bursts.size()) {
+                cout << " ==> I/O burst " << process.io_bursts[j] << "ms";
+            }
+            cout << endl;
+        }
+    }
+}
+
+int main(int argc, char* argv[]) {
+    if (argc != 6) {
+        cerr << "Usage: " << argv[0] << " <num_processes> <num_cpu_bound> <seed> <lambda> <bound>" << endl;
+        return 1;
+    }
+
+     //Incorrect amount of arguments
     if(argc!=6){
       fprintf(stderr,"ERROR: Incorrect number of arguments.\n");
       return EXIT_FAILURE;
@@ -40,8 +123,6 @@ int main(int argc, char * argv[]) {
       fprintf(stderr,"ERROR: Number of CPU-bound processes must be positive.\n");
       return EXIT_FAILURE;
     }
-
-
      
     long int seed = strtol(argv[3], &p,10);
     if(*p){
@@ -71,78 +152,11 @@ int main(int argc, char * argv[]) {
       return EXIT_FAILURE;
     }
 
-
-    //start of program
     srand48(seed);
-    std::cout<<processes<<" "<< cpu_bound_processes<< " "<< seed << " "<< lambda<< " "<< bound<< "\n";
 
-    // cpu bound processes first
-    //cpu proccess are named A0-A9, B0...Z9
-    char cpu_name = 'A';
-    int cpu_num = 0;
-    for(int i = 0; i < cpu_bound_processes; i++){
-      double arrival = floor(next_exp(lambda,bound));
-      double burst = ceil(drand48()*32);
-      std::string s = std::string(1,cpu_name) + std::to_string(cpu_num);
-      nextName(cpu_name,cpu_num);
-      
-      printProcess(s, 1, arrival, burst, bound, lambda);
-    }
-    for(int j = 0; j < processes - cpu_bound_processes; j++){
-      double arrival = floor(next_exp(lambda,bound));
-      double burst = ceil(drand48()*32);
-      std::string s = std::string(1,cpu_name) + std::to_string(cpu_num);
-      nextName(cpu_name,cpu_num);
-      
-      printProcess(s, 0, arrival, burst, bound, lambda);
-    }
-    
-    //This will be fun
+    vector<Process> processes;
+    initialize_processes(processes, num_processes, num_cpu_bound, lambda);
+    print_processes(processes, num_processes, num_cpu_bound, seed, lambda);
+
     return 0;
 }
-  double next_exp(double lambda, long int bound){
-    double r = drand48();
-    double x = -log(r)/lambda;    
-    while(x > bound){
-      r = drand48();
-      x = -log(r)/lambda;
-    }
-    return x;
-  }
-  
-  void nextName(char &name, int &num){
-    if(num == 9){
-      name++;
-      num = 0;
-    }
-    else{
-      num++;
-    }
-  }
-
-  void printProcess(std::string p, bool CPU_or_IO, int arrival, int burst, long int bound, double lambda){
-    //1 for CPU, 0 for IO
-    if(CPU_or_IO){
-      std::cout<<"CPU-bound process "<< p << ": arrival time " <<arrival<<"ms; "<<burst<<" CPU bursts:\n";
-      for(int i = 0; i < burst - 1; i++){
-        int burst_time = ceil(next_exp(lambda, bound)) * 4;
-        int io_time =  ceil(next_exp(lambda, bound));
-        std::cout<<"==> CPU burst "<<burst_time <<"ms ==> I/O burst "<<io_time<<"ms"<<std::endl;
-      }
-      int burst_time = ceil(next_exp(lambda, bound)) * 4;
-      std::cout<<"==> CPU burst "<<burst_time<<"ms"<<std::endl;
-    }
-    else{
-      std::cout<<"I/O-bound process "<< p << ": arrival time " <<arrival<<"ms; "<<burst<<" CPU bursts:\n";
-      for(int i = 0; i < burst - 1; i++){
-        int burst_time = ceil(next_exp(lambda, bound));
-        int io_time = ceil(next_exp(lambda,bound)) * 8;
-        std::cout<<"==> CPU burst "<<burst_time<<"ms ==> I/O burst "<<io_time<<"ms"<<std::endl;
-      }
-      int burst_time = ceil(next_exp(lambda, bound));
-      std::cout<<"==> CPU burst "<<burst_time<<"ms"<<std::endl;
-
-    }
-  }
-
-
