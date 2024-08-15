@@ -1,3 +1,4 @@
+// Process.h
 #ifndef PROCESS_H
 #define PROCESS_H
 
@@ -15,8 +16,17 @@ public:
     int arrival_time;
     std::vector<int> cpu_bursts;
     std::vector<int> io_bursts;
+    double tau; // Estimated CPU burst time
 
-    Process(std::string id, int arrival_time, ProcessType type);
+    // New member variables
+    int wait_time;
+    int turnaround_time;
+    int context_switches;
+    int preemptions;
+    int total_cpu_time;
+    int total_time;
+
+    Process(std::string id, int arrival_time, ProcessType type, double initial_tau);
     bool is_cpu_bound() const;
 };
 
