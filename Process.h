@@ -15,7 +15,9 @@ public:
     ProcessType type;
     int arrival_time;
     std::vector<int> cpu_bursts;
+    std::vector<int> original_cpu_bursts;
     std::vector<int> io_bursts;
+    std::vector<bool> done_in_1slice;
     double tau; // Estimated CPU burst time
 
     // New member variables
@@ -25,9 +27,13 @@ public:
     int preemptions;
     int total_cpu_time;
     int total_time;
+    int initial_wait_time = 0;
+    int end_wait_time;
 
     Process(std::string id, int arrival_time, ProcessType type, double initial_tau);
     bool is_cpu_bound() const;
+    void sliced(int time, int slice_time, int original_burst);
+
 };
 
 #endif // PROCESS_H

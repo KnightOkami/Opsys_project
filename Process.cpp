@@ -8,3 +8,21 @@ Process::Process(std::string id, int arrival_time, ProcessType type, double init
 bool Process::is_cpu_bound() const {
     return type == CPU_BOUND;
 }
+
+
+void Process::sliced(int time, int slice_time, int original_burst) {
+    //find the index of the original burst
+    int index = 0;
+    for (size_t i = 0; i < original_cpu_bursts.size(); i++) {
+        if (original_cpu_bursts[i] == original_burst) {
+            index = i;
+            break;
+        }
+    }
+    if(original_burst > slice_time) {
+        done_in_1slice[index] = false;
+    } else {
+        done_in_1slice[index] = true;
+    }
+}
+

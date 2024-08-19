@@ -10,6 +10,7 @@
 #include <algorithm>
 #include "Process.h"
 
+
 using namespace std;
 
 queue<Process*> ready_queue;
@@ -43,6 +44,8 @@ void generate_bursts(Process& process, const double lambda) {
         }
 
         process.cpu_bursts.push_back(cpu_burst);
+        process.original_cpu_bursts.push_back(cpu_burst);
+        process.done_in_1slice.push_back(false);
         if (j < num_cpu_bursts - 1) {
             process.io_bursts.push_back(io_burst);
         }
@@ -90,8 +93,151 @@ double calculate_cpu_utilization(const vector<Process>& processes) {
     return (total_time > 0) ? static_cast<double>(total_cpu_time) / total_time : 0;
 }
 
+double calcAvgWait(char type, const vector<Process>& processes){
+    double total = 0;
+    if(type == 'C'){
+        for(const Process& process : processes){
+            if(process.is_cpu_bound()){
+                total += process.wait_time;
+            }
+        }
+    } else if(type == 'I') {
+        for(const Process& process : processes){
+            if(!process.is_cpu_bound()){
+                total += process.wait_time;
+            }
+        }
+    } else {
+        for(const Process& process : processes){
+            total += process.wait_time;
+        }
+    }
+    return total / processes.size();
+}
+
+double calcAvgTurn(char type, const vector<Process>& processes){
+    double total = 0;
+    if(type == 'C'){
+        for(const Process& process : processes){
+            int turnaround = process.wait_time + process.total_cpu_time;
+            if(process.is_cpu_bound()){
+                total += turnaround;
+            }
+        }
+    } else if(type == 'I') {
+        for(const Process& process : processes){
+            int turnaround = process.wait_time + process.total_cpu_time;
+            if(!process.is_cpu_bound()){
+                total += turnaround;
+            }
+        }
+    } else {
+        for(const Process& process : processes){
+            total += process.wait_time + process.total_cpu_time;
+        }
+    }
+    return total / processes.size();
+}
+
+int calcContSwitch(char type, const vector<Process>& processes){
+    int total = 0;
+    if(type == 'C'){
+        for(const Process& process : processes){
+            if(process.is_cpu_bound()){
+                total += process.context_switches;
+            }
+        }
+    } else if(type == 'I') {
+        for(const Process& process : processes){
+            if(!process.is_cpu_bound()){
+                total += process.context_switches;
+            }
+        }
+    } else {
+        for(const Process& process : processes){
+            total += process.context_switches;
+        }
+    }
+    return total;
+}
+
+int calcPreemptions(char type, const vector<Process>& processes){
+    int total = 0;
+    if(type == 'C'){
+        for(const Process& process : processes){
+            if(process.is_cpu_bound()){
+                total += process.preemptions;
+            }
+        }
+    } else if(type == 'I') {
+        for(const Process& process : processes){
+            if(!process.is_cpu_bound()){
+                total += process.preemptions;
+            }
+        }
+    } else {
+        for(const Process& process : processes){
+            total += process.preemptions;
+        }
+    }
+    return total;
+}
+
+int doneIn1(char type, const vector<Process>& processes){
+    int total = 0;
+    if(type == 'C'){
+        for(const Process& process : processes){
+            if(process.is_cpu_bound()){
+                for(bool done : process.done_in_1slice){
+                    if(done){
+                        total++;
+                    }
+                }
+            }
+        }
+    } else if(type == 'I') {
+        for(const Process& process : processes){
+            if(!process.is_cpu_bound()){
+                for(bool done : process.done_in_1slice){
+                    if(done){
+                        total++;
+                    }
+                }
+            }
+        }
+    } else {
+        for(const Process& process : processes){
+            for(bool done : process.done_in_1slice){
+                if(done){
+                    total++;
+                }
+            }
+        }
+    }
+    return total;
+}
+
+
 void write_algorithm_to_file(const string& algorithm, ofstream &outfile, const vector<Process>& processes) {
-    outfile << ("\noutput stats here");
+    if(algorithm == "RR"){
+        outfile << "Algorithm RR" << endl;
+        outfile << "-- CPU utilization: " << fixed << setprecision(3) << calculate_cpu_utilization(processes) << endl;
+        outfile << "CPU-bound average wait time: " << fixed << setprecision(3) << calcAvgWait('C', processes)<< " ms" <<endl;
+        outfile << "I/O-bound average wait time: " << fixed << setprecision(3) << calcAvgWait('I', processes) << " ms" << endl;
+        outfile << "overall average wait time: " << fixed << setprecision(3) << calcAvgWait('A', processes) << " ms" << endl;
+        outfile << "CPU-bound average turnaround time: " << fixed << setprecision(3) << calcAvgTurn('C', processes) << " ms" << endl;
+        outfile << "I/O-bound average turnaround time: " << fixed << setprecision(3) << calcAvgTurn('I', processes) << " ms" << endl;
+        outfile << "overall average turnaround time: " << fixed << setprecision(3) << calcAvgTurn('A', processes) << " ms" << endl;
+        outfile << "CPU-bound number of context switches: " << calcContSwitch('C', processes) << endl;
+        outfile << "I/O-bound number of context switches: " << calcContSwitch('I', processes) << endl;
+        outfile << "overall number of context switches: " << calcContSwitch('A', processes) << endl;
+        outfile << "CPU-bound number of preemptions: " << calcPreemptions('C', processes) << endl;
+        outfile << "I/O-bound number of preemptions: " << calcPreemptions('I', processes) << endl;
+        outfile << "overall number of preemptions: " << calcPreemptions('A', processes) << endl;
+        outfile << "CPU-bound percentage of CPU bursts completed within one time slice: " << doneIn1('C', processes) << "%" << endl;
+        outfile << "I/O-bound percentage of CPU bursts completed within one time slice: " << doneIn1('I', processes) << "%" << endl;
+        outfile << "overall percentage of CPU bursts completed within one time slice: " << doneIn1('C', processes) << "%" << endl;
+    }
 }
 
 void calculate_and_write_statistics(const vector<Process>& processes, ofstream &outfile) {
@@ -205,6 +351,30 @@ void sort_ready_queue(queue<Process*>& rq) {
     }
 }
 
+bool remove_first_duplicate(queue<Process*>& rq){
+
+    //remove the first duplicate while keeping the order
+    bool wasdup = false;
+    vector<Process*> temp;
+    while (!rq.empty()) {
+        temp.push_back(rq.front());
+        rq.pop();
+    }
+    for(size_t i = 0; i < temp.size(); i++){
+        bool duplicate = false;
+        for(size_t j = 0; j < i; j++){
+            if(temp[i]->id == temp[j]->id){
+                duplicate = true;
+                wasdup = true;
+                break;
+            }
+        }
+        if(!duplicate){
+            rq.push(temp[i]);
+        }
+    }
+    return wasdup;
+}
 // Function to run the First-Come, First-Served (FCFS) simulation
 // Parameters:
 // - processes: vector of Process objects representing all processes
@@ -420,20 +590,181 @@ void run_sjf_simulation(vector<Process>& processes, queue<Process*>& ready_queue
 //     cout << endl;
 //
 // }
-//
-// void run_rr_simulation(vector<Process>& processes, queue<Process*>& ready_queue, const int tcs, const double alpha, const int tslice) {
-//     int current_time = 0;
-//     bool cpu_idle = true;
-//     Process* current_process = nullptr;
-//     int cpu_burst_remaining = 0;
-//     queue<Process*> io_queue;
-//
-//     print_event(current_time, "Simulator started for RR", ready_queue);
-//
-//     // RR simulation logic here
-//
-//     print_event(current_time, "Simulator ended for RR", ready_queue);
-// }
+
+
+void run_rr_simulation(vector<Process>& processes, queue<Process*>& ready_queue, const int tcs, const int tslice) {
+    int current_time = 0;
+    bool cpu_idle = true;
+    Process* current_process = nullptr;
+    int cpu_burst_remaining = 0;
+    int original_cpu_burst = 0;
+    queue<Process*> io_queue;
+    unordered_set<string> completed_processes;
+    int context_switch_time = 0;
+    int time_slice_remaining = tslice;
+    int target_time = -1;
+    Process* target_process = nullptr;
+    int target_burst_remaining = -1;
+    int target_original_burst = -1;
+    bool preempted = false;
+
+    print_event(current_time, "Simulator started for RR", ready_queue);
+
+    // Main simulation loop
+    while((completed_processes.size() < processes.size() || !ready_queue.empty() || !io_queue.empty() || !cpu_idle)){
+        //check for process arrivals
+        for (auto & processe : processes) {
+            if (processe.arrival_time == current_time && completed_processes.find(processe.id) == completed_processes.end()) {
+                ready_queue.push(&processe);
+                processe.initial_wait_time = current_time;
+                
+                if(!remove_first_duplicate(ready_queue)){
+                print_event(current_time, "Process " + processe.id + " arrived; added to ready queue", ready_queue);
+                }
+            }
+        }
+
+        //check for I/O completions
+        vector<Process*> temp_io_queue;
+        while (!io_queue.empty()) {
+            Process* io_process = io_queue.front();
+            io_queue.pop();
+            if (io_process->io_bursts.front() == current_time) {
+                io_process->io_bursts.erase(io_process->io_bursts.begin());
+                ready_queue.push(io_process);
+                print_event(current_time, "Process " + io_process->id + " completed I/O; added to ready queue", ready_queue);
+                if(ready_queue.size() == 1 && cpu_idle){
+                    context_switch_time = 0;
+                }
+            } else {
+                temp_io_queue.push_back(io_process);
+            }
+        }
+        for (Process* io_process : temp_io_queue) {
+            io_queue.push(io_process);
+        }
+
+        //if CPU is idle, or the current process has used up its time slice, start the next process
+        if(cpu_idle && !ready_queue.empty()){
+            if(target_process != nullptr && preempted && target_time - 1 == current_time){
+                //awesome bandaid
+                ready_queue.push(target_process);
+            }
+            if(target_process != nullptr && preempted && target_time == current_time){
+                //block handles the case where the process was preempted but we have to wait for the context switch to finish to add to the ready queue
+                target_process = nullptr;
+                target_burst_remaining = -1;
+                target_original_burst = -1;
+                preempted = false;
+                target_time = -1;
+                current_time -= tcs / 2;
+            }
+            if(target_time == -1){
+                //block for when we have to start a new process
+                context_switch_time += tcs / 2;
+                target_time = current_time + context_switch_time;
+                target_process = ready_queue.front();
+                target_burst_remaining = target_process->cpu_bursts.front();
+                target_original_burst = target_process->original_cpu_bursts.front();
+                target_process->wait_time += context_switch_time;
+                time_slice_remaining = tslice;
+                context_switch_time = 0;
+            }
+            if(target_time == current_time){
+                cpu_idle = false;
+                ready_queue.pop();
+                current_process = target_process;
+                cpu_burst_remaining = target_burst_remaining;
+                original_cpu_burst = target_original_burst;
+                target_time = -1;
+                target_process = nullptr;
+                if(target_original_burst > target_burst_remaining){
+                    print_event(current_time, "Process " + current_process->id + " started using the CPU for remaining " + to_string(cpu_burst_remaining) + "ms of " + to_string(original_cpu_burst) + " burst", ready_queue);
+                } else {
+                    print_event(current_time, "Process " + current_process->id + " started using the CPU for " + to_string(cpu_burst_remaining) + "ms burst", ready_queue);
+                }
+                current_process->wait_time = current_time - current_process->initial_wait_time;
+                target_burst_remaining = -1;
+                target_original_burst = -1;
+            }
+        }
+        
+        if(!cpu_idle && current_process != nullptr){
+            if(context_switch_time > 0){
+                context_switch_time--;
+            } else {
+                if(cpu_burst_remaining == 0){
+                    if(current_process->cpu_bursts.size() >= 2){
+                        cpu_burst_remaining = -1;
+                        current_process->cpu_bursts.erase(current_process->cpu_bursts.begin());
+                        original_cpu_burst = current_process->original_cpu_bursts.front();
+                        current_process->original_cpu_bursts.erase(current_process->original_cpu_bursts.begin());
+                        print_event(current_time, "Process " + current_process->id + " completed a CPU burst; " + to_string(current_process->cpu_bursts.size())
+                           + (current_process->cpu_bursts.size() == 1 ? " burst" : " bursts") + " to go", ready_queue);
+                        current_process->io_bursts.front() += current_time + tcs / 2;
+                        io_queue.push(current_process);
+                        print_event(current_time, "Process " + current_process->id + " switching out of CPU; blocking on I/O until time " + to_string(current_process->io_bursts.front()) + "ms", ready_queue);
+                        current_process->context_switches++;
+                        current_process->initial_wait_time = current_time;
+                        current_process->sliced(current_time, tslice, original_cpu_burst);
+                        current_process = nullptr;
+                        cpu_idle = true;
+                        context_switch_time = tcs / 2;
+                        current_time--;
+
+                    } 
+                    else if (current_process->cpu_bursts.size() == 1){
+                        cpu_burst_remaining = -1;
+                        print_event(current_time, "Process " + current_process->id + " terminated", ready_queue);
+                        current_process->cpu_bursts.erase(current_process->cpu_bursts.begin());
+                        original_cpu_burst = current_process->original_cpu_bursts.front();
+                        current_process->original_cpu_bursts.erase(current_process->original_cpu_bursts.begin());   
+                        cpu_idle = true;
+                        context_switch_time = tcs / 2;
+                        current_process->sliced(current_time, tslice, original_cpu_burst);
+                        completed_processes.insert(current_process->id);
+                        current_process->total_cpu_time += original_cpu_burst;
+                        current_process->total_time = current_time - current_process->arrival_time;
+                        current_process->turnaround_time = current_process->total_time;
+                        current_process->context_switches++;
+                        current_process = nullptr;
+                        context_switch_time = tcs / 2;
+                        current_time--;
+
+                    } 
+                } else if(time_slice_remaining == 0){
+                    if(ready_queue.size() == 0){
+                        //just run the same process again until the queue is not empty or the process is done
+                        print_event(current_time, "Time slice expired; no preemption because ready queue is empty", ready_queue);
+                        time_slice_remaining = tslice;
+                        current_process->cpu_bursts[0] = cpu_burst_remaining;
+                        current_time --;
+                    } else {
+                        //preempt the current process
+                        print_event(current_time, "Time slice expired; preempting process " + current_process->id + " with " + to_string(cpu_burst_remaining) + "ms remaining", ready_queue);
+                        current_process->cpu_bursts[0] = cpu_burst_remaining;
+                        current_process->initial_wait_time = current_time;
+                        context_switch_time = tcs /2;
+                        target_process = current_process;
+                        target_time = current_time + context_switch_time;
+                        preempted = true;
+                        current_process->preemptions++;
+                        current_process->context_switches++;
+                        cpu_idle = true;
+                        current_process = nullptr;
+                        current_time--;
+                    }
+                }
+                else {
+                    cpu_burst_remaining--;
+                    time_slice_remaining--;
+                }
+            }
+        } 
+        current_time++;
+    }
+    print_event(current_time + tcs / 2, "Simulator ended for RR", ready_queue);
+}
 
 void reset_simulation(vector<Process>& processes, const vector<Process>& original_processes) {
     processes = original_processes;
@@ -535,18 +866,19 @@ int main(const int argc, char* argv[]) {
     const vector<Process> original_processes = processes;
     ofstream outfile("simout.txt");
     calculate_and_write_statistics(processes, outfile);
-
+    /*
     run_fcfs_simulation(processes, ready_queue, tcs);
     write_algorithm_to_file("FCFS", outfile, processes);
     reset_simulation(processes, original_processes);
 
     run_sjf_simulation(processes, ready_queue, tcs, alpha);
     reset_simulation(processes, original_processes);
-
+    */
     // run_srt_simulation(processes, ready_queue, tcs, alpha);
     // reset_simulation(processes, original_processes);
     //
-    // run_rr_simulation(processes, ready_queue, tcs, alpha, tslice);
+    run_rr_simulation(processes, ready_queue, tcs, tslice);
+    write_algorithm_to_file("RR", outfile, processes);
 
 
 
